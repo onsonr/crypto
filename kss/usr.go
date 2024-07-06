@@ -3,8 +3,6 @@ package kss
 import (
 	"encoding/json"
 
-	"github.com/di-dao/sonr/x/did/types"
-	"github.com/onsonr/crypto"
 	"github.com/onsonr/crypto/core/curves"
 	"github.com/onsonr/crypto/core/protocol"
 	"github.com/onsonr/crypto/tecdsa/dklsv1"
@@ -21,7 +19,7 @@ type SignFuncUser = *dklsv1.BobSign
 type User interface {
 	GetSignFunc(msg []byte) (SignFuncUser, error)
 	GetRefreshFunc() (RefreshFuncUser, error)
-	PublicKey() crypto.PublicKey
+	PublicKey() *PublicKey
 	Marshal() ([]byte, error)
 }
 
@@ -63,12 +61,12 @@ func (u *userKeyshare) GetRefreshFunc() (RefreshFuncUser, error) {
 }
 
 // PublicKey is the public key for the keyshare
-func (u *userKeyshare) PublicKey() crypto.PublicKey {
+func (u *userKeyshare) PublicKey() *PublicKey {
 	bobOut, err := dklsv1.DecodeBobDkgResult(u.usrKSS)
 	if err != nil {
 		panic(err)
 	}
-	pub := &types.PublicKey{
+	pub := &PublicKey{
 		Key:     bobOut.PublicKey.ToAffineUncompressed(),
 		KeyType: "ecdsa-secp256k1",
 	}

@@ -3,13 +3,12 @@ package kss
 import (
 	"encoding/json"
 
-	"github.com/onsonr/crypto"
 	"github.com/onsonr/crypto/core/protocol"
 )
 
 // KssI is the interface for the keyshare set
 type Set interface {
-	PublicKey() crypto.PublicKey
+	PublicKey() *PublicKey
 	Usr() User
 	Val() Val
 }
@@ -34,7 +33,7 @@ func (ks *keyshares) Val() Val {
 }
 
 // PublicKey returns the public key for the keyshare set
-func (ks *keyshares) PublicKey() crypto.PublicKey {
+func (ks *keyshares) PublicKey() *PublicKey {
 	return ks.val.PublicKey()
 }
 

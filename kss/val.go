@@ -3,8 +3,6 @@ package kss
 import (
 	"encoding/json"
 
-	"github.com/di-dao/sonr/x/did/types"
-	"github.com/onsonr/crypto"
 	"github.com/onsonr/crypto/core/curves"
 	"github.com/onsonr/crypto/core/protocol"
 	"github.com/onsonr/crypto/tecdsa/dklsv1"
@@ -21,7 +19,7 @@ type SignFuncVal = *dklsv1.AliceSign
 type Val interface {
 	GetSignFunc(msg []byte) (SignFuncVal, error)
 	GetRefreshFunc() (RefreshFuncVal, error)
-	PublicKey() crypto.PublicKey
+	PublicKey() *PublicKey
 	Marshal() ([]byte, error)
 }
 
@@ -63,12 +61,12 @@ func (v *validatorKeyshare) GetRefreshFunc() (RefreshFuncVal, error) {
 }
 
 // PublicKey is the public key for the keyshare
-func (u *validatorKeyshare) PublicKey() crypto.PublicKey {
+func (u *validatorKeyshare) PublicKey() *PublicKey {
 	aliceOut, err := dklsv1.DecodeAliceDkgResult(u.valKSS)
 	if err != nil {
 		panic(err)
 	}
-	pub := &types.PublicKey{
+	pub := &PublicKey{
 		Key:     aliceOut.PublicKey.ToAffineUncompressed(),
 		KeyType: "ecdsa-secp256k1",
 	}

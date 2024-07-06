@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/onsonr/crypto"
 	"github.com/onsonr/crypto/accumulator"
 	"github.com/onsonr/crypto/core/curves"
+	"github.com/onsonr/crypto/kss"
 )
 
 // PrimaryKey is the secret key for the BLS scheme
@@ -18,7 +18,7 @@ type PrimaryKey struct {
 type Element = accumulator.Element
 
 // NewKey creates a new primary key
-func NewKey(propertyKey string, pubKey crypto.PublicKey) (*PrimaryKey, error) {
+func NewKey(propertyKey string, pubKey *kss.PublicKey) (*PrimaryKey, error) {
 	// Concatenate the controller's public key and the property key
 	input := append(pubKey.Bytes(), []byte(propertyKey)...)
 	hash := []byte(input)
