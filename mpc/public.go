@@ -1,4 +1,4 @@
-package kss
+package mpc
 
 import (
 	"encoding/hex"

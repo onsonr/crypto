@@ -12,7 +12,7 @@ import (
 )
 
 // GenerateKss generates both keyshares
-func GenerateKss() (kss.Set, error) {
+func GenerateKss() (Set, error) {
 	defaultCurve := curves.K256()
 	bob := dklsv1.NewBobDkg(defaultCurve, protocol.Version1)
 	alice := dklsv1.NewAliceDkg(defaultCurve, protocol.Version1)
@@ -28,7 +28,7 @@ func GenerateKss() (kss.Set, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kss.NewKeyshareSet(aliceRes, bobRes)
+	return newKeyshareSet(aliceRes, bobRes)
 }
 
 // RunProtocol runs the keyshare protocol between two parties

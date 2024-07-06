@@ -1,4 +1,4 @@
-package kss
+package mpc
 
 import (
 	"encoding/json"
@@ -37,8 +37,8 @@ func (ks *keyshares) PublicKey() *PublicKey {
 	return ks.val.PublicKey()
 }
 
-// NewKeyshareSet creates a new KeyshareSet
-func NewKeyshareSet(aliceResult *protocol.Message, bobResult *protocol.Message) (Set, error) {
+// newKeyshareSet creates a new KeyshareSet
+func newKeyshareSet(aliceResult *protocol.Message, bobResult *protocol.Message) (Set, error) {
 	valBz, err := json.Marshal(aliceResult)
 	if err != nil {
 		return nil, err
