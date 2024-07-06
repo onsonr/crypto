@@ -6,7 +6,6 @@ import (
 
 	"github.com/onsonr/crypto/core/curves"
 	"github.com/onsonr/crypto/core/protocol"
-	"github.com/onsonr/crypto/kss"
 	"github.com/onsonr/crypto/signatures/ecdsa"
 	"github.com/onsonr/crypto/tecdsa/dklsv1"
 )
@@ -64,7 +63,7 @@ func RunProtocol(firstParty protocol.Iterator, secondParty protocol.Iterator) er
 }
 
 // RunSignProtocol runs the generic dkls protocol using the kss.SignFuncVal and kss.SignFuncUser
-func RunSignProtocol(valSignFunc kss.SignFuncVal, userSignFunc kss.SignFuncUser) ([]byte, error) {
+func RunSignProtocol(valSignFunc SignFuncVal, userSignFunc SignFuncUser) ([]byte, error) {
 	err := RunProtocol(valSignFunc, userSignFunc)
 	if err != nil {
 		return nil, errors.Join(err, fmt.Errorf("failed to get validator sign function"))
@@ -81,7 +80,7 @@ func RunSignProtocol(valSignFunc kss.SignFuncVal, userSignFunc kss.SignFuncUser)
 }
 
 // RunRefreshProtocol runs the generic dkls protocol using the kss.RefreshFuncVal and kss.RefreshFuncUser
-func RunRefreshProtocol(valRefreshFunc kss.RefreshFuncVal, userRefreshFunc kss.RefreshFuncUser) (kss.Set, error) {
+func RunRefreshProtocol(valRefreshFunc RefreshFuncVal, userRefreshFunc RefreshFuncUser) (Set, error) {
 	err := RunProtocol(valRefreshFunc, userRefreshFunc)
 	if err != nil {
 		return nil, err
@@ -94,5 +93,5 @@ func RunRefreshProtocol(valRefreshFunc kss.RefreshFuncVal, userRefreshFunc kss.R
 	if err != nil {
 		return nil, err
 	}
-	return kss.NewKeyshareSet(valRes, userRes)
+	return newKeyshareSet(valRes, userRes)
 }
