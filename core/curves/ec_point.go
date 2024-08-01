@@ -12,14 +12,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/btcsuite/btcd/btcec/v2"
-
 	"github.com/onsonr/crypto/core"
-	"github.com/onsonr/crypto/core/curves/secp256k1"
 	"github.com/onsonr/crypto/internal"
 )
 
-var curveNameToId = map[string]byte{
+var curveNameToID = map[string]byte{
 	"secp256k1": 0,
 	"P-224":     1,
 	"P-256":     2,
@@ -27,8 +24,8 @@ var curveNameToId = map[string]byte{
 	"P-521":     4,
 }
 
-var curveIdToName = map[byte]func() elliptic.Curve{
-	0: func() elliptic.Curve { return secp256k1.S256() },
+var curveIDToName = map[byte]func() elliptic.Curve{
+	0: secp256k1.S256,
 	1: elliptic.P224,
 	2: elliptic.P256,
 	3: elliptic.P384,
@@ -36,7 +33,7 @@ var curveIdToName = map[byte]func() elliptic.Curve{
 }
 
 var curveMapper = map[string]func() elliptic.Curve{
-	"secp256k1": func() elliptic.Curve { return btcec.S256() },
+	"secp256k1": secp256k1.S256,
 	"P-224":     elliptic.P224,
 	"P-256":     elliptic.P256,
 	"P-384":     elliptic.P384,
@@ -49,26 +46,27 @@ type EcPoint struct {
 	X, Y  *big.Int
 }
 
-// EcPointJson encapsulates the data that is serialized to JSON
+// EcPointJSON encapsulates the data that is serialized to JSON
 // used internally and not for external use. Public so other pieces
 // can use for serialization
-type EcPointJson struct {
-	X         *big.Int
-	Y         *big.Int
-	CurveName string
+type EcPointJSON struct {
+	X         *big.Int `json:"x"`
+	Y         *big.Int `json:"y"`
+	CurveName string   `json:"curve_name"`
 }
 
-// MarshalJSON serializes
+// MarshalJSON serializes EcPoint to JSON
 func (a EcPoint) MarshalJSON() ([]byte, error) {
-	return json.Marshal(EcPointJson{
+	return json.Marshal(EcPointJSON{
 		CurveName: a.Curve.Params().Name,
 		X:         a.X,
 		Y:         a.Y,
 	})
 }
 
+// UnmarshalJSON deserializes JSON to EcPoint
 func (a *EcPoint) UnmarshalJSON(bytes []byte) error {
-	data := new(EcPointJson)
+	data := new(EcPointJSON)
 	err := json.Unmarshal(bytes, data)
 	if err != nil {
 		return err
@@ -82,9 +80,10 @@ func (a *EcPoint) UnmarshalJSON(bytes []byte) error {
 	return fmt.Errorf("unknown curve deserialized")
 }
 
+// MarshalBinary serializes EcPoint to binary
 func (a *EcPoint) MarshalBinary() ([]byte, error) {
 	result := [65]byte{}
-	if code, ok := curveNameToId[a.Curve.Params().Name]; ok {
+	if code, ok := curveNameToID[a.Curve.Params().Name]; ok {
 		result[0] = code
 		a.X.FillBytes(result[1:33])
 		a.Y.FillBytes(result[33:65])
@@ -93,8 +92,9 @@ func (a *EcPoint) MarshalBinary() ([]byte, error) {
 	return nil, fmt.Errorf("unknown curve serialized")
 }
 
+// UnmarshalBinary deserializes binary to EcPoint
 func (a *EcPoint) UnmarshalBinary(data []byte) error {
-	if mapper, ok := curveIdToName[data[0]]; ok {
+	if mapper, ok := curveIDToName[data[0]]; ok {
 		a.Curve = mapper()
 		a.X = new(big.Int).SetBytes(data[1:33])
 		a.Y = new(big.Int).SetBytes(data[33:65])
@@ -103,10 +103,12 @@ func (a *EcPoint) UnmarshalBinary(data []byte) error {
 	return fmt.Errorf("unknown curve deserialized")
 }
 
+// IsValid checks if the point is valid
 func (a EcPoint) IsValid() bool {
 	return a.IsOnCurve() || a.IsIdentity()
 }
 
+// IsOnCurve checks if the point is on the curve
 func (a EcPoint) IsOnCurve() bool {
 	return a.Curve.IsOnCurve(a.X, a.Y)
 }
@@ -118,12 +120,11 @@ func (a EcPoint) IsIdentity() bool {
 	return (x & y) == 1
 }
 
-// Equals return true if a + b have the same x,y coordinates
+// Equals return true if a and b have the same x,y coordinates
 func (a EcPoint) Equals(b *EcPoint) bool {
 	if !sameCurve(&a, b) {
 		return false
 	}
-	// Next, compare coords to determine equality
 	x := core.ConstantTimeEqByte(a.X, b.X)
 	y := core.ConstantTimeEqByte(a.Y, b.Y)
 	return (x & y) == 1
@@ -137,18 +138,16 @@ func (a EcPoint) IsBasePoint() bool {
 	return (x & y) == 1
 }
 
-// Normalizes the Scalar to a positive element smaller than the base Point order.
+// reduceModN normalizes the Scalar to a positive element smaller than the base Point order.
 func reduceModN(curve elliptic.Curve, k *big.Int) *big.Int {
 	return new(big.Int).Mod(k, curve.Params().N)
 }
 
 // Add performs elliptic curve addition on two points
 func (a *EcPoint) Add(b *EcPoint) (*EcPoint, error) {
-	// Validate parameters
 	if a == nil || b == nil {
 		return nil, internal.ErrNilArguments
 	}
-	// Only add points from the same curve
 	if !sameCurve(a, b) {
 		return nil, internal.ErrPointsDistinctCurves
 	}
@@ -162,11 +161,9 @@ func (a *EcPoint) Add(b *EcPoint) (*EcPoint, error) {
 
 // Neg returns the negation of a Weierstrass Point.
 func (a *EcPoint) Neg() (*EcPoint, error) {
-	// Validate parameters
 	if a == nil {
 		return nil, internal.ErrNilArguments
 	}
-	// Only add points from the same curve
 	p := &EcPoint{Curve: a.Curve, X: a.X, Y: new(big.Int).Sub(a.Curve.Params().P, a.Y)}
 	if !p.IsValid() {
 		return nil, internal.ErrNotOnCurve
@@ -234,25 +231,19 @@ func PointFromBytesUncompressed(curve elliptic.Curve, b []byte) (*EcPoint, error
 
 // sameCurve determines if points a,b appear to be from the same curve
 func sameCurve(a, b *EcPoint) bool {
-	// Handle identical pointers and double-nil
 	if a == b {
 		return true
 	}
-
-	// Handle one nil pointer
 	if a == nil || b == nil {
 		return false
 	}
-
 	aParams := a.Curve.Params()
 	bParams := b.Curve.Params()
-
-	// Use curve order and name
-	return aParams.P == bParams.P &&
-		aParams.N == bParams.N &&
-		aParams.B == bParams.B &&
+	return aParams.P.Cmp(bParams.P) == 0 &&
+		aParams.N.Cmp(bParams.N) == 0 &&
+		aParams.B.Cmp(bParams.B) == 0 &&
 		aParams.BitSize == bParams.BitSize &&
-		aParams.Gx == bParams.Gx &&
-		aParams.Gy == bParams.Gy &&
+		aParams.Gx.Cmp(bParams.Gx) == 0 &&
+		aParams.Gy.Cmp(bParams.Gy) == 0 &&
 		aParams.Name == bParams.Name
 }
