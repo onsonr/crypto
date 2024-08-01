@@ -3,7 +3,7 @@ package curves
 import (
 	"crypto/elliptic"
 
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+	"github.com/onsonr/crypto/core/curves/secp256k1"
 )
 
 func SP256() elliptic.Curve {
