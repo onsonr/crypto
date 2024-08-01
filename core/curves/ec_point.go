@@ -15,6 +15,7 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 
 	"github.com/onsonr/crypto/core"
+	"github.com/onsonr/crypto/core/curves/secp256k1"
 	"github.com/onsonr/crypto/internal"
 )
 
@@ -27,7 +28,7 @@ var curveNameToId = map[string]byte{
 }
 
 var curveIdToName = map[byte]func() elliptic.Curve{
-	0: func() elliptic.Curve { return btcec.S256() },
+	0: func() elliptic.Curve { return secp256k1.S256() },
 	1: elliptic.P224,
 	2: elliptic.P256,
 	3: elliptic.P384,
@@ -52,8 +53,9 @@ type EcPoint struct {
 // used internally and not for external use. Public so other pieces
 // can use for serialization
 type EcPointJson struct {
+	X         *big.Int
+	Y         *big.Int
 	CurveName string
-	X, Y      *big.Int
 }
 
 // MarshalJSON serializes
