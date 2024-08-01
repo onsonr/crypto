@@ -3,9 +3,9 @@ package curves
 import (
 	"crypto/elliptic"
 
-	"github.com/onsonr/crypto/core/curves/secp256k1"
+	"github.com/dustinxie/ecc"
 )
 
 func SP256() elliptic.Curve {
-	return secp256k1.S256()
+	return ecc.P256k1()
 }

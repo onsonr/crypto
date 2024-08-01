@@ -13,6 +13,8 @@ import (
 	"math/big"
 
 	"github.com/onsonr/crypto/core"
+
+	"github.com/dustinxie/ecc"
 	"github.com/onsonr/crypto/internal"
 )
 
@@ -25,7 +27,7 @@ var curveNameToID = map[string]byte{
 }
 
 var curveIDToName = map[byte]func() elliptic.Curve{
-	0: secp256k1.S256,
+	0: ecc.P256k1,
 	1: elliptic.P224,
 	2: elliptic.P256,
 	3: elliptic.P384,
@@ -33,7 +35,7 @@ var curveIDToName = map[byte]func() elliptic.Curve{
 }
 
 var curveMapper = map[string]func() elliptic.Curve{
-	"secp256k1": secp256k1.S256,
+	"secp256k1": ecc.P256k1,
 	"P-224":     elliptic.P224,
 	"P-256":     elliptic.P256,
 	"P-384":     elliptic.P384,
