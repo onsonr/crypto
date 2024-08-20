@@ -1,2 +1,0 @@
-// / Crypto package
-package crypto

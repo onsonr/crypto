@@ -19,8 +19,9 @@ type EcdsaVerify func(pubKey *EcPoint, hash []byte, signature *EcdsaSignature) b
 
 // EcdsaSignature represents a (composite) digital signature
 type EcdsaSignature struct {
-	V    int
-	R, S *big.Int
+	R *big.Int
+	S *big.Int
+	V int
 }
 
 // Static type assertion
