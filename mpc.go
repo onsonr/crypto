@@ -42,7 +42,7 @@ func (r MPCRole) IsValidator() bool {
 }
 
 type MPCShare interface {
-	Equals(o MPCShare) bool
+	// Equals(o MPCShare) bool
 	GetPayloads() map[string][]byte
 	GetMetadata() map[string]string
 	GetPublicKey() ([]byte, error)
