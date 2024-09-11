@@ -1,27 +1,15 @@
 package crypto
 
 import (
+	"crypto/ecdsa"
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/onsonr/crypto/core/curves"
 	"github.com/onsonr/crypto/core/protocol"
-	"github.com/onsonr/crypto/signatures/ecdsa"
 	"github.com/onsonr/crypto/tecdsa/dklsv1"
 	"golang.org/x/crypto/sha3"
 )
-
-const (
-	MPCRoleUnknown MPCRole = iota
-	MPCRoleUser
-	MPCRoleValidator
-)
-
-var ErrInvalidKeyshareRole = errors.New("invalid keyshare role")
-
-// MPCMessage is the protocol.Message that is used for MPC
-type MPCMessage = protocol.Message
 
 func GetMPCMessage(k MPCShare) *protocol.Message {
 	return &protocol.Message{
@@ -32,35 +20,16 @@ func GetMPCMessage(k MPCShare) *protocol.Message {
 	}
 }
 
-type MPCRole int
-
-func (r MPCRole) IsUser() bool {
-	return r == MPCRoleUser
-}
-
-func (r MPCRole) IsValidator() bool {
-	return r == MPCRoleValidator
-}
-
-type MPCShare interface {
-	// Equals(o MPCShare) bool
-	GetPayloads() map[string][]byte
-	GetMetadata() map[string]string
-	GetPublicKey() []byte
-	GetProtocol() string
-	GetRole() MPCRole
-	GetVersion() uint
-}
-
 // GetPublicKey is the public key for the keyshare
 func GetPublicKey(ks MPCShare) ([]byte, error) {
-	if ks.GetRole().IsUser() {
+	role := MPCRole(ks.GetRole())
+	if role.IsUser() {
 		bobOut, err := dklsv1.DecodeBobDkgResult(GetMPCMessage(ks))
 		if err != nil {
 			return nil, err
 		}
 		return bobOut.PublicKey.ToAffineUncompressed(), nil
-	} else if ks.GetRole().IsValidator() {
+	} else if role.IsValidator() {
 		aliceOut, err := dklsv1.DecodeAliceDkgResult(GetMPCMessage(ks))
 		if err != nil {
 			return nil, err
@@ -70,67 +39,75 @@ func GetPublicKey(ks MPCShare) ([]byte, error) {
 	return nil, ErrInvalidKeyshareRole
 }
 
-// RefreshFunc is the type for the refresh function
-type RefreshFunc interface {
-	protocol.Iterator
-}
-
 // GetRefreshFunc returns the refresh function for the keyshare
 func GetRefreshFunc(ks MPCShare) (RefreshFunc, error) {
 	curve := curves.K256()
-	if ks.GetRole().IsUser() {
+	role := MPCRole(ks.GetRole())
+	if role.IsUser() {
 		return dklsv1.NewBobRefresh(curve, GetMPCMessage(ks), protocol.Version1)
-	} else if ks.GetRole().IsValidator() {
+	} else if role.IsValidator() {
 		return dklsv1.NewAliceRefresh(curve, GetMPCMessage(ks), protocol.Version1)
 	}
 	return nil, ErrInvalidKeyshareRole
 }
 
-// SignFunc is the type for the sign function
-type SignFunc interface {
-	protocol.Iterator
-}
-
 // GetSignFunc returns the sign function for the keyshare
 func GetSignFunc(ks MPCShare, msg []byte) (SignFunc, error) {
 	curve := curves.K256()
-	if ks.GetRole().IsUser() {
+	role := MPCRole(ks.GetRole())
+	if role.IsUser() {
 		return dklsv1.NewBobSign(curve, sha3.New256(), msg, GetMPCMessage(ks), protocol.Version1)
-	} else if ks.GetRole().IsValidator() {
+	} else if role.IsValidator() {
 		return dklsv1.NewAliceSign(curve, sha3.New256(), msg, GetMPCMessage(ks), protocol.Version1)
 	}
 	return nil, ErrInvalidKeyshareRole
 }
 
-type MPCShares = []MPCShare
-
-// BuildEcPoint builds an elliptic curve point from a compressed byte slice
-func BuildEcPoint(pubKey []byte) (*curves.EcPoint, error) {
-	crv := curves.K256()
-	x := new(big.Int).SetBytes(pubKey[1:33])
-	y := new(big.Int).SetBytes(pubKey[33:])
-	ecCurve, err := crv.ToEllipticCurve()
-	if err != nil {
-		return nil, fmt.Errorf("error converting curve: %v", err)
+func RunMPCSign(signFuncVal SignFunc, signFuncUser SignFunc) (MPCSignature, error) {
+	aErr, bErr := runIteratedProtocol(signFuncVal, signFuncUser)
+	if aErr != nil {
+		return nil, aErr
 	}
-	return &curves.EcPoint{X: x, Y: y, Curve: ecCurve}, nil
+	if bErr != nil {
+		return nil, bErr
+	}
+	out, err := signFuncUser.Result(protocol.Version1)
+	if err != nil {
+		return nil, err
+	}
+	return dklsv1.DecodeSignature(out)
 }
 
-// VerifySignature verifies the signature of a message
-func VerifySignature(ks MPCShare, msg []byte, sig []byte) bool {
-	pp, err := BuildEcPoint(ks.GetPublicKey())
+// SerializeSecp256k1Signature serializes an ECDSA signature into a byte slice
+func SerializeMPCSignature(sig MPCSignature) ([]byte, error) {
+	rBytes := sig.R.Bytes()
+	sBytes := sig.S.Bytes()
+
+	sigBytes := make([]byte, 66) // V (1 byte) + R (32 bytes) + S (32 bytes)
+	sigBytes[0] = byte(sig.V)
+	copy(sigBytes[33-len(rBytes):33], rBytes)
+	copy(sigBytes[66-len(sBytes):66], sBytes)
+	return sigBytes, nil
+}
+
+// DeserializeSecp256k1Signature deserializes an ECDSA signature from a byte slice
+func DeserializeMPCSignature(sigBytes []byte) (MPCSignature, error) {
+	if len(sigBytes) != 66 {
+		return nil, errors.New("malformed signature: not the correct size")
+	}
+	sig := &curves.EcdsaSignature{
+		V: int(sigBytes[0]),
+		R: new(big.Int).SetBytes(sigBytes[1:33]),
+		S: new(big.Int).SetBytes(sigBytes[33:66]),
+	}
+	return sig, nil
+}
+
+// VerifyMPCSignature verifies an MPC signature
+func VerifyMPCSignature(sig MPCSignature, msg []byte, publicKey []byte) bool {
+	pk, err := ComputeEcdsaPublicKey(publicKey)
 	if err != nil {
 		return false
 	}
-	sigEd, err := ecdsa.DeserializeSecp256k1Signature(sig)
-	if err != nil {
-		return false
-	}
-	hash := sha3.New256()
-	_, err = hash.Write(msg)
-	if err != nil {
-		return false
-	}
-	digest := hash.Sum(nil)
-	return curves.VerifyEcdsa(pp, digest[:], sigEd)
+	return ecdsa.Verify(pk, msg, sig.R, sig.S)
 }

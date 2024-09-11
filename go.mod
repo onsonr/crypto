@@ -2,8 +2,6 @@ module github.com/onsonr/crypto
 
 go 1.21
 
-toolchain go1.22.5
-
 require (
 	filippo.io/edwards25519 v1.1.0
 	git.sr.ht/~sircmpwn/go-bare v0.0.0-20210406120253-ab86bc2846d9
