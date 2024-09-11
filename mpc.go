@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// GetMPCMessage returns the protocol.Message for the keyshare
 func GetMPCMessage(k MPCShare) *protocol.Message {
 	return &protocol.Message{
 		Payloads: k.GetPayloads(),
@@ -20,8 +21,8 @@ func GetMPCMessage(k MPCShare) *protocol.Message {
 	}
 }
 
-// GetPublicKey is the public key for the keyshare
-func GetPublicKey(ks MPCShare) ([]byte, error) {
+// GetRawPublicKey is the public key for the keyshare
+func GetRawPublicKey(ks MPCShare) ([]byte, error) {
 	role := MPCRole(ks.GetRole())
 	if role.IsUser() {
 		bobOut, err := dklsv1.DecodeBobDkgResult(GetMPCMessage(ks))
@@ -37,6 +38,15 @@ func GetPublicKey(ks MPCShare) ([]byte, error) {
 		return aliceOut.PublicKey.ToAffineUncompressed(), nil
 	}
 	return nil, ErrInvalidKeyshareRole
+}
+
+// GetECDSAPublicKey is the public key for the keyshare
+func GetECDSAPublicKey(ks MPCShare) (*ecdsa.PublicKey, error) {
+	raw, err := GetRawPublicKey(ks)
+	if err != nil {
+		return nil, err
+	}
+	return ComputeEcdsaPublicKey(raw)
 }
 
 // GetRefreshFunc returns the refresh function for the keyshare
@@ -63,12 +73,37 @@ func GetSignFunc(ks MPCShare, msg []byte) (SignFunc, error) {
 	return nil, ErrInvalidKeyshareRole
 }
 
-func RunMPCSign(signFuncVal SignFunc, signFuncUser SignFunc) (MPCSignature, error) {
-	aErr, bErr := runIteratedProtocol(signFuncVal, signFuncUser)
-	if aErr != nil {
+// RunMPCGenerate generates a new MPC keyshare
+func RunMPCGenerate() ([]MPCShare, error) {
+	curve := curves.K256()
+	valKs := dklsv1.NewAliceDkg(curve, protocol.Version1)
+	userKs := dklsv1.NewBobDkg(curve, protocol.Version1)
+	aErr, bErr := runIteratedProtocol(valKs, userKs)
+	if aErr != protocol.ErrProtocolFinished {
 		return nil, aErr
 	}
-	if bErr != nil {
+	if bErr != protocol.ErrProtocolFinished {
+		return nil, bErr
+	}
+	valRes, err := valKs.Result(protocol.Version1)
+	if err != nil {
+		return nil, err
+	}
+	userRes, err := userKs.Result(protocol.Version1)
+	if err != nil {
+		return nil, err
+	}
+
+	return createKeyshareArray(valRes, userRes)
+}
+
+// RunMPCSign runs the MPC signing protocol
+func RunMPCSign(signFuncVal SignFunc, signFuncUser SignFunc) (MPCSignature, error) {
+	aErr, bErr := runIteratedProtocol(signFuncVal, signFuncUser)
+	if aErr != protocol.ErrProtocolFinished {
+		return nil, aErr
+	}
+	if bErr != protocol.ErrProtocolFinished {
 		return nil, bErr
 	}
 	out, err := signFuncUser.Result(protocol.Version1)
@@ -76,6 +111,26 @@ func RunMPCSign(signFuncVal SignFunc, signFuncUser SignFunc) (MPCSignature, erro
 		return nil, err
 	}
 	return dklsv1.DecodeSignature(out)
+}
+
+// RunMPCRefresh runs the MPC refresh protocol
+func RunMPCRefresh(refreshFuncVal RefreshFunc, refreshFuncUser RefreshFunc) ([]MPCShare, error) {
+	aErr, bErr := runIteratedProtocol(refreshFuncVal, refreshFuncUser)
+	if aErr != protocol.ErrProtocolFinished {
+		return nil, aErr
+	}
+	if bErr != protocol.ErrProtocolFinished {
+		return nil, bErr
+	}
+	valRefreshResult, err := refreshFuncVal.Result(protocol.Version1)
+	if err != nil {
+		return nil, err
+	}
+	userRefreshResult, err := refreshFuncUser.Result(protocol.Version1)
+	if err != nil {
+		return nil, err
+	}
+	return createKeyshareArray(valRefreshResult, userRefreshResult)
 }
 
 // SerializeSecp256k1Signature serializes an ECDSA signature into a byte slice
@@ -104,10 +159,6 @@ func DeserializeMPCSignature(sigBytes []byte) (MPCSignature, error) {
 }
 
 // VerifyMPCSignature verifies an MPC signature
-func VerifyMPCSignature(sig MPCSignature, msg []byte, publicKey []byte) bool {
-	pk, err := ComputeEcdsaPublicKey(publicKey)
-	if err != nil {
-		return false
-	}
-	return ecdsa.Verify(pk, msg, sig.R, sig.S)
+func VerifyMPCSignature(sig MPCSignature, msg []byte, publicKey *ecdsa.PublicKey) bool {
+	return ecdsa.Verify(publicKey, msg, sig.R, sig.S)
 }
