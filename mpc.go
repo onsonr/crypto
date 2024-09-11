@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	MPCRole_USER MPCRole = iota
-	MPCRole_VALIDATOR
+	MPCRoleUnknown MPCRole = iota
+	MPCRoleUser
+	MPCRoleValidator
 )
 
 var ErrInvalidKeyshareRole = errors.New("invalid keyshare role")
@@ -34,18 +35,18 @@ func GetMPCMessage(k MPCShare) *protocol.Message {
 type MPCRole int
 
 func (r MPCRole) IsUser() bool {
-	return r == MPCRole_USER
+	return r == MPCRoleUser
 }
 
 func (r MPCRole) IsValidator() bool {
-	return r == MPCRole_VALIDATOR
+	return r == MPCRoleValidator
 }
 
 type MPCShare interface {
 	// Equals(o MPCShare) bool
 	GetPayloads() map[string][]byte
 	GetMetadata() map[string]string
-	GetPublicKey() ([]byte, error)
+	GetPublicKey() []byte
 	GetProtocol() string
 	GetRole() MPCRole
 	GetVersion() uint
@@ -117,11 +118,7 @@ func BuildEcPoint(pubKey []byte) (*curves.EcPoint, error) {
 
 // VerifySignature verifies the signature of a message
 func VerifySignature(ks MPCShare, msg []byte, sig []byte) bool {
-	pbz, err := ks.GetPublicKey()
-	if err != nil {
-		return false
-	}
-	pp, err := BuildEcPoint(pbz)
+	pp, err := BuildEcPoint(ks.GetPublicKey())
 	if err != nil {
 		return false
 	}
