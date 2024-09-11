@@ -38,7 +38,7 @@ type MPCShare interface {
 	GetMetadata() map[string]string
 	GetPublicKey() []byte
 	GetProtocol() string
-	GetRole() int
+	GetRole() int32
 	GetVersion() uint
 }
 
@@ -93,8 +93,8 @@ func (v valKeyshare) GetProtocol() string {
 	return v.Message.Protocol
 }
 
-func (v valKeyshare) GetRole() int {
-	return v.Role
+func (v valKeyshare) GetRole() int32 {
+	return int32(v.Role)
 }
 
 func (v valKeyshare) GetVersion() uint {
@@ -137,8 +137,8 @@ func (u userKeyshare) GetProtocol() string {
 	return u.Message.Protocol
 }
 
-func (u userKeyshare) GetRole() int {
-	return u.Role
+func (u userKeyshare) GetRole() int32 {
+	return int32(u.Role)
 }
 
 func (u userKeyshare) GetVersion() uint {
