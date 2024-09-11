@@ -17,7 +17,7 @@ func GetMPCMessage(k MPCShare) *protocol.Message {
 		Payloads: k.GetPayloads(),
 		Metadata: k.GetMetadata(),
 		Protocol: k.GetProtocol(),
-		Version:  k.GetVersion(),
+		Version:  uint(k.GetVersion()),
 	}
 }
 

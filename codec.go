@@ -39,7 +39,7 @@ type MPCShare interface {
 	GetPublicKey() []byte
 	GetProtocol() string
 	GetRole() int32
-	GetVersion() uint
+	GetVersion() uint32
 }
 
 func createKeyshareArray(val MPCMessage, user MPCMessage) ([]MPCShare, error) {
@@ -97,8 +97,8 @@ func (v valKeyshare) GetRole() int32 {
 	return int32(v.Role)
 }
 
-func (v valKeyshare) GetVersion() uint {
-	return v.Message.Version
+func (v valKeyshare) GetVersion() uint32 {
+	return uint32(v.Message.Version)
 }
 
 func (v valKeyshare) Equals(o MPCShare) bool {
@@ -141,8 +141,8 @@ func (u userKeyshare) GetRole() int32 {
 	return int32(u.Role)
 }
 
-func (u userKeyshare) GetVersion() uint {
-	return u.Message.Version
+func (u userKeyshare) GetVersion() uint32 {
+	return uint32(u.Message.Version)
 }
 
 func (u userKeyshare) Equals(o MPCShare) bool {
