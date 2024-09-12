@@ -11,11 +11,14 @@ require (
 	github.com/cosmos/btcutil v1.0.5
 	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
 	github.com/ecies/go/v2 v2.0.9
+	github.com/frankban/quicktest v1.14.6
+	github.com/google/go-cmp v0.5.9
 	github.com/gtank/merlin v0.1.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.25.0
+	gopkg.in/macaroon.v2 v2.1.0
 	lukechampine.com/blake3 v1.3.0
 )
 
@@ -26,6 +29,8 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/ethereum/go-ethereum v1.14.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20181016162300-f8f6d4d2b643 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
