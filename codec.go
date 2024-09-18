@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 
 	"github.com/onsonr/crypto/core/curves"
 	"github.com/onsonr/crypto/core/protocol"
@@ -40,6 +41,8 @@ type MPCShare interface {
 	GetProtocol() string
 	GetRole() int32
 	GetVersion() uint32
+	Marshal() (string, error)
+	Unmarshal(data string) error
 }
 
 func createKeyshareArray(val MPCMessage, user MPCMessage) ([]MPCShare, error) {
@@ -65,12 +68,13 @@ type SignFunc interface {
 }
 
 type valKeyshare struct {
-	Message MPCMessage
-	Role    int // 1 for validator, 2 for user
+	Message   MPCMessage `json:"message"`
+	Role      int        `json:"role"` // 1 for validator, 2 for user
+	PublicKey []byte     `json:"public-key"`
 }
 
-func createValKeyshare(out *dkg.AliceOutput, msg MPCMessage) userKeyshare {
-	return userKeyshare{
+func createValKeyshare(out *dkg.AliceOutput, msg MPCMessage) valKeyshare {
+	return valKeyshare{
 		Message:   msg,
 		Role:      1,
 		PublicKey: out.PublicKey.ToAffineUncompressed(),
@@ -86,7 +90,7 @@ func (v valKeyshare) GetMetadata() map[string]string {
 }
 
 func (v valKeyshare) GetPublicKey() []byte {
-	return v.Message.Payloads["public-key"]
+	return v.PublicKey
 }
 
 func (v valKeyshare) GetProtocol() string {
@@ -107,10 +111,19 @@ func (v valKeyshare) Equals(o MPCShare) bool {
 		v.GetRole() == o.GetRole()
 }
 
+func (v valKeyshare) Marshal() (string, error) {
+	jsonBytes, err := json.Marshal(v)
+	return string(jsonBytes), err
+}
+
+func (v valKeyshare) Unmarshal(data string) error {
+	return json.Unmarshal([]byte(data), &v)
+}
+
 type userKeyshare struct {
-	Message   MPCMessage // BobOutput
-	Role      int        // 2 for user, 1 for validator
-	PublicKey []byte
+	Message   MPCMessage `json:"message"` // BobOutput
+	Role      int        `json:"role"`    // 2 for user, 1 for validator
+	PublicKey []byte     `json:"public-key"`
 }
 
 func createUserKeyshare(out *dkg.BobOutput, msg MPCMessage) userKeyshare {
@@ -130,7 +143,7 @@ func (u userKeyshare) GetMetadata() map[string]string {
 }
 
 func (u userKeyshare) GetPublicKey() []byte {
-	return u.Message.Payloads["public-key"]
+	return u.PublicKey
 }
 
 func (u userKeyshare) GetProtocol() string {
@@ -149,4 +162,13 @@ func (u userKeyshare) Equals(o MPCShare) bool {
 	return u.GetProtocol() == o.GetProtocol() &&
 		u.GetVersion() == o.GetVersion() &&
 		u.GetRole() == o.GetRole()
+}
+
+func (u userKeyshare) Marshal() (string, error) {
+	jsonBytes, err := json.Marshal(u)
+	return string(jsonBytes), err
+}
+
+func (u userKeyshare) Unmarshal(data string) error {
+	return json.Unmarshal([]byte(data), &u)
 }
