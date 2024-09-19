@@ -1,4 +1,4 @@
-package crypto
+package mpc
 
 import (
 	genericecdsa "crypto/ecdsa"
@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-func runIteratedProtocol(firstParty protocol.Iterator, secondParty protocol.Iterator) (error, error) {
+func RunProtocol(firstParty protocol.Iterator, secondParty protocol.Iterator) (error, error) {
 	var (
 		message *protocol.Message
 		aErr    error
@@ -57,12 +57,12 @@ func ComputeEcdsaPublicKey(pubKey []byte) (*genericecdsa.PublicKey, error) {
 }
 
 // VerifySignature verifies the signature of a message
-func VerifySignature(ks MPCShare, msg []byte, sig []byte) (bool, error) {
+func VerifySignature(ks Share, msg []byte, sig []byte) (bool, error) {
 	pp, err := ComputeEcPoint(ks.GetPublicKey())
 	if err != nil {
 		return false, err
 	}
-	sigEd, err := DeserializeMPCSignature(sig)
+	sigEd, err := DeserializeSignature(sig)
 	if err != nil {
 		return false, err
 	}
