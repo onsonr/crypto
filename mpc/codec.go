@@ -86,6 +86,12 @@ func NewValKeyshare(out *dkg.AliceOutput, msg Message) ValKeyshare {
 	}
 }
 
+func LoadValKeyshare(serialized string) (ValKeyshare, error) {
+	var ks ValKeyshare
+	err := json.Unmarshal([]byte(serialized), &ks)
+	return ks, err
+}
+
 func (v ValKeyshare) GetPayloads() map[string][]byte {
 	return v.Message.Payloads
 }
@@ -160,6 +166,12 @@ func NewUserKeyshare(out *dkg.BobOutput, msg Message) UserKeyshare {
 		Role:      2,
 		PublicKey: out.PublicKey.ToAffineUncompressed(),
 	}
+}
+
+func LoadUserKeyshare(serialized string) (UserKeyshare, error) {
+	var ks UserKeyshare
+	err := json.Unmarshal([]byte(serialized), &ks)
+	return ks, err
 }
 
 func (u UserKeyshare) GetPayloads() map[string][]byte {
