@@ -19,6 +19,10 @@ const (
 	RoleValidator
 )
 
+func (r Role) Int() int {
+	return int(r)
+}
+
 func (r Role) IsUser() bool {
 	return r == RoleUser
 }
@@ -81,7 +85,7 @@ type ValKeyshare struct {
 func NewValKeyshare(out *dkg.AliceOutput, msg Message) ValKeyshare {
 	return ValKeyshare{
 		Message:   msg,
-		Role:      1,
+		Role:      RoleValidator.Int(),
 		PublicKey: out.PublicKey.ToAffineUncompressed(),
 	}
 }
@@ -163,7 +167,7 @@ type UserKeyshare struct {
 func NewUserKeyshare(out *dkg.BobOutput, msg Message) UserKeyshare {
 	return UserKeyshare{
 		Message:   msg,
-		Role:      2,
+		Role:      RoleUser.Int(),
 		PublicKey: out.PublicKey.ToAffineUncompressed(),
 	}
 }
