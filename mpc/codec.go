@@ -1,263 +1,83 @@
 package mpc
 
 import (
-	"crypto/ecdsa"
-	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 
-	"github.com/onsonr/crypto/core/curves"
 	"github.com/onsonr/crypto/core/protocol"
-	"github.com/onsonr/crypto/tecdsa/dklsv1"
-	"github.com/onsonr/crypto/tecdsa/dklsv1/dkg"
-	"golang.org/x/crypto/sha3"
 )
 
-type Role int
+var ErrInvalidKeyshareRole = errors.New("invalid keyshare role")
+
+type Role string
 
 const (
-	RoleUnknown Role = iota
-	RoleUser
-	RoleValidator
+	RoleUser      Role = "user"
+	RoleValidator Role = "validator"
 )
 
-func (r Role) Int() int {
-	return int(r)
+func ExtractRole(s string) (Role, error) {
+	ptrs := strings.Split(s, ":")
+	if len(ptrs) != 2 {
+		return "", errors.New("malformed keyshare")
+	}
+	r := Role(ptrs[0])
+	if r.IsBob() || r.IsAlice() {
+		return r, nil
+	}
+	return "", ErrInvalidKeyshareRole
 }
 
-func (r Role) IsUser() bool {
+func (r Role) String() string {
+	return string(r)
+}
+
+func (r Role) IsBob() bool {
 	return r == RoleUser
 }
 
-func (r Role) IsValidator() bool {
+func (r Role) IsAlice() bool {
 	return r == RoleValidator
 }
 
-// Message is the protocol.Message that is used for MPC
-type Message *protocol.Message
-
-type PublicKey *ecdsa.PublicKey
-
-type Signature *curves.EcdsaSignature
-
-type Share interface {
-	Equals(o Share) bool
-	GetPayloads() map[string][]byte
-	GetMetadata() map[string]string
-	GetPublicKey() []byte
-	GetProtocol() string
-	GetRole() int32
-	GetVersion() uint32
-	ECDSAPublicKey() (*ecdsa.PublicKey, error)
-	ExtractMessage() *protocol.Message
-	RefreshFunc() (RefreshFunc, error)
-	SignFunc(msg []byte) (SignFunc, error)
-	Marshal() (string, error)
-	Unmarshal(data string) error
-}
-
 func NewKeyshareArray(val Message, user Message) ([]Share, error) {
-	valShare, err := dklsv1.DecodeAliceDkgResult(val)
+	valShare, err := EncodeKeyshare(val, RoleValidator)
 	if err != nil {
 		return nil, err
 	}
-	userShare, err := dklsv1.DecodeBobDkgResult(user)
+	userShare, err := EncodeKeyshare(user, RoleUser)
 	if err != nil {
 		return nil, err
 	}
-	return []Share{NewValKeyshare(valShare, val), NewUserKeyshare(userShare, user)}, nil
+	return []Share{
+		valShare,
+		userShare,
+	}, nil
 }
 
-// RefreshFunc is the type for the refresh function
-type RefreshFunc interface {
-	protocol.Iterator
-}
-
-// SignFunc is the type for the sign function
-type SignFunc interface {
-	protocol.Iterator
-}
-
-type ValKeyshare struct {
-	Message   Message `json:"message"`
-	Role      int     `json:"role"` // 1 for validator, 2 for user
-	PublicKey []byte  `json:"public-key"`
-}
-
-func NewValKeyshare(out *dkg.AliceOutput, msg Message) ValKeyshare {
-	return ValKeyshare{
-		Message:   msg,
-		Role:      RoleValidator.Int(),
-		PublicKey: out.PublicKey.ToAffineUncompressed(),
-	}
-}
-
-func LoadValKeyshare(serialized string) (ValKeyshare, error) {
-	var ks ValKeyshare
-	err := json.Unmarshal([]byte(serialized), &ks)
-	return ks, err
-}
-
-func (v ValKeyshare) GetPayloads() map[string][]byte {
-	return v.Message.Payloads
-}
-
-func (v ValKeyshare) GetMetadata() map[string]string {
-	return v.Message.Metadata
-}
-
-func (v ValKeyshare) GetPublicKey() []byte {
-	return v.PublicKey
-}
-
-func (v ValKeyshare) GetProtocol() string {
-	return v.Message.Protocol
-}
-
-func (v ValKeyshare) GetRole() int32 {
-	return int32(v.Role)
-}
-
-func (v ValKeyshare) GetVersion() uint32 {
-	return uint32(v.Message.Version)
-}
-
-func (k ValKeyshare) ECDSAPublicKey() (*ecdsa.PublicKey, error) {
-	return ComputeEcdsaPublicKey(k.PublicKey)
-}
-
-func (k ValKeyshare) ExtractMessage() *protocol.Message {
-	return &protocol.Message{
-		Payloads: k.GetPayloads(),
-		Metadata: k.GetMetadata(),
-		Protocol: k.GetProtocol(),
-		Version:  uint(k.GetVersion()),
-	}
-}
-
-func (k ValKeyshare) RefreshFunc() (RefreshFunc, error) {
-	curve := curves.K256()
-	return dklsv1.NewAliceRefresh(curve, k.ExtractMessage(), protocol.Version1)
-}
-
-func (k ValKeyshare) SignFunc(msg []byte) (SignFunc, error) {
-	curve := curves.K256()
-	return dklsv1.NewAliceSign(curve, sha3.New256(), msg, k.ExtractMessage(), protocol.Version1)
-}
-
-func (v ValKeyshare) Equals(o Share) bool {
-	return v.GetProtocol() == o.GetProtocol() &&
-		v.GetVersion() == o.GetVersion() &&
-		v.GetRole() == o.GetRole()
-}
-
-func (v ValKeyshare) Marshal() (string, error) {
-	jsonBytes, err := json.Marshal(v)
-	return string(jsonBytes), err
-}
-
-func (v ValKeyshare) Unmarshal(data string) error {
-	return json.Unmarshal([]byte(data), &v)
-}
-
-type UserKeyshare struct {
-	Message   Message `json:"message"` // BobOutput
-	Role      int     `json:"role"`    // 2 for user, 1 for validator
-	PublicKey []byte  `json:"public-key"`
-}
-
-func NewUserKeyshare(out *dkg.BobOutput, msg Message) UserKeyshare {
-	return UserKeyshare{
-		Message:   msg,
-		Role:      RoleUser.Int(),
-		PublicKey: out.PublicKey.ToAffineUncompressed(),
-	}
-}
-
-func LoadUserKeyshare(serialized string) (UserKeyshare, error) {
-	var ks UserKeyshare
-	err := json.Unmarshal([]byte(serialized), &ks)
-	return ks, err
-}
-
-func (u UserKeyshare) GetPayloads() map[string][]byte {
-	return u.Message.Payloads
-}
-
-func (u UserKeyshare) GetMetadata() map[string]string {
-	return u.Message.Metadata
-}
-
-func (u UserKeyshare) GetPublicKey() []byte {
-	return u.PublicKey
-}
-
-func (u UserKeyshare) GetProtocol() string {
-	return u.Message.Protocol
-}
-
-func (u UserKeyshare) GetRole() int32 {
-	return int32(u.Role)
-}
-
-func (u UserKeyshare) GetVersion() uint32 {
-	return uint32(u.Message.Version)
-}
-
-func (k UserKeyshare) ECDSAPublicKey() (*ecdsa.PublicKey, error) {
-	return ComputeEcdsaPublicKey(k.PublicKey)
-}
-
-func (u UserKeyshare) Equals(o Share) bool {
-	return u.GetProtocol() == o.GetProtocol() &&
-		u.GetVersion() == o.GetVersion() &&
-		u.GetRole() == o.GetRole()
-}
-
-func (k UserKeyshare) ExtractMessage() *protocol.Message {
-	return &protocol.Message{
-		Payloads: k.GetPayloads(),
-		Metadata: k.GetMetadata(),
-		Protocol: k.GetProtocol(),
-		Version:  uint(k.GetVersion()),
-	}
-}
-
-func (k UserKeyshare) RefreshFunc() (RefreshFunc, error) {
-	curve := curves.K256()
-	return dklsv1.NewBobRefresh(curve, k.ExtractMessage(), protocol.Version1)
-}
-
-func (k UserKeyshare) SignFunc(msg []byte) (SignFunc, error) {
-	curve := curves.K256()
-	return dklsv1.NewBobSign(curve, sha3.New256(), msg, k.ExtractMessage(), protocol.Version1)
-}
-
-func (u UserKeyshare) Marshal() (string, error) {
-	jsonBytes, err := json.Marshal(u)
+// EncodeKeyshare encodes the message to a string.
+func EncodeKeyshare(msg Message, role Role) (Share, error) {
+	ks, err := protocol.EncodeMessage(msg)
 	if err != nil {
 		return "", err
 	}
-	return string(jsonBytes), nil
+	return Share(fmt.Sprintf("%s:%s", role.String(), ks)), nil
 }
 
-func (u UserKeyshare) Unmarshal(data string) error {
-	return json.Unmarshal([]byte(data), &u)
-}
-
-// GetRawPublicKey is the public key for the keyshare
-func GetRawPublicKey(ks Share) ([]byte, error) {
-	role := Role(ks.GetRole())
-	if role.IsUser() {
-		bobOut, err := dklsv1.DecodeBobDkgResult(ks.ExtractMessage())
-		if err != nil {
-			return nil, err
-		}
-		return bobOut.PublicKey.ToAffineUncompressed(), nil
-	} else if role.IsValidator() {
-		aliceOut, err := dklsv1.DecodeAliceDkgResult(ks.ExtractMessage())
-		if err != nil {
-			return nil, err
-		}
-		return aliceOut.PublicKey.ToAffineUncompressed(), nil
+// DecodeKeyshare decodes the message from a string.
+func DecodeKeyshare(s string) (Share, error) {
+	ptrs := strings.Split(s, ":")
+	if len(ptrs) != 2 {
+		return "", errors.New("malformed keyshare")
 	}
-	return nil, ErrInvalidKeyshareRole
+	_, err := ExtractRole(ptrs[0])
+	if err != nil {
+		return "", err
+	}
+	_, err = protocol.DecodeMessage(ptrs[1])
+	if err != nil {
+		return "", err
+	}
+	return Share(s), nil
 }

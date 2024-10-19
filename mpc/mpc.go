@@ -10,6 +10,23 @@ import (
 	"github.com/onsonr/crypto/tecdsa/dklsv1"
 )
 
+// Message is the protocol.Message that is used for MPC
+type Message *protocol.Message
+
+type PublicKey *ecdsa.PublicKey
+
+type Signature *curves.EcdsaSignature
+
+// RefreshFunc is the type for the refresh function
+type RefreshFunc interface {
+	protocol.Iterator
+}
+
+// SignFunc is the type for the sign function
+type SignFunc interface {
+	protocol.Iterator
+}
+
 // GenerateKeyshares generates a new MPC keyshare
 func GenerateKeyshares() ([]Share, error) {
 	curve := curves.K256()

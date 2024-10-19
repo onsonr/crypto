@@ -7,9 +7,11 @@ import (
 
 	"github.com/onsonr/crypto/core/curves"
 	"github.com/onsonr/crypto/core/protocol"
+	"github.com/onsonr/crypto/tecdsa/dklsv1"
 	"golang.org/x/crypto/sha3"
 )
 
+// RunProtocol runs the protocol between two parties.
 func RunProtocol(firstParty protocol.Iterator, secondParty protocol.Iterator) (error, error) {
 	var (
 		message *protocol.Message
@@ -56,9 +58,35 @@ func ComputeEcdsaPublicKey(pubKey []byte) (*genericecdsa.PublicKey, error) {
 	}, nil
 }
 
+// GetRawPublicKey is the public key for the keyshare
+func GetRawPublicKey(ks Share) ([]byte, error) {
+	msg, err := ks.Message()
+	if err != nil {
+		return nil, err
+	}
+	if ks.Role().IsBob() {
+		bobOut, err := dklsv1.DecodeBobDkgResult(msg)
+		if err != nil {
+			return nil, err
+		}
+		return bobOut.PublicKey.ToAffineUncompressed(), nil
+	} else if ks.Role().IsAlice() {
+		aliceOut, err := dklsv1.DecodeAliceDkgResult(msg)
+		if err != nil {
+			return nil, err
+		}
+		return aliceOut.PublicKey.ToAffineUncompressed(), nil
+	}
+	return nil, ErrInvalidKeyshareRole
+}
+
 // VerifySignature verifies the signature of a message
 func VerifySignature(ks Share, msg []byte, sig []byte) (bool, error) {
-	pp, err := ComputeEcPoint(ks.GetPublicKey())
+	pk, err := ks.PublicKey()
+	if err != nil {
+		return false, err
+	}
+	pp, err := ComputeEcPoint(pk)
 	if err != nil {
 		return false, err
 	}
