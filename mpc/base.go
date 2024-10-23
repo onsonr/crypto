@@ -6,33 +6,9 @@ import (
 	"math/big"
 
 	"github.com/onsonr/crypto/core/curves"
-	"github.com/onsonr/crypto/core/protocol"
 	"github.com/onsonr/crypto/tecdsa/dklsv1"
 	"golang.org/x/crypto/sha3"
 )
-
-// RunProtocol runs the protocol between two parties.
-func RunProtocol(firstParty protocol.Iterator, secondParty protocol.Iterator) (error, error) {
-	var (
-		message *protocol.Message
-		aErr    error
-		bErr    error
-	)
-
-	for aErr != protocol.ErrProtocolFinished || bErr != protocol.ErrProtocolFinished {
-		// Crank each protocol forward one iteration
-		message, bErr = firstParty.Next(message)
-		if bErr != nil && bErr != protocol.ErrProtocolFinished {
-			return nil, bErr
-		}
-
-		message, aErr = secondParty.Next(message)
-		if aErr != nil && aErr != protocol.ErrProtocolFinished {
-			return aErr, nil
-		}
-	}
-	return aErr, bErr
-}
 
 // ComputeEcPoint builds an elliptic curve point from a compressed byte slice
 func ComputeEcPoint(pubKey []byte) (*curves.EcPoint, error) {
@@ -46,6 +22,7 @@ func ComputeEcPoint(pubKey []byte) (*curves.EcPoint, error) {
 	return &curves.EcPoint{X: x, Y: y, Curve: ecCurve}, nil
 }
 
+// ComputeEcdsaPublicKey takes the public key byte array and returns the ECDSA result
 func ComputeEcdsaPublicKey(pubKey []byte) (*genericecdsa.PublicKey, error) {
 	pk, err := ComputeEcPoint(pubKey)
 	if err != nil {
